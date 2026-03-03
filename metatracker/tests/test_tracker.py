@@ -1,13 +1,9 @@
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Set SWXSOC_MISSION environment variable
-os.environ["SWXSOC_MISSION"] = "padre"
-
 from swxsoc.util import util
 
-from metatracker import log
+from metatracker import _test_files_directory, log
 from metatracker.database import create_engine, create_session
 from metatracker.database.tables import create_tables
 from metatracker.database.tables.science_file_table import ScienceFileTable
@@ -16,11 +12,11 @@ from metatracker.database.tables.status_table import StatusTable
 from metatracker.tracker import tracker
 
 TEST_DB_HOST = "sqlite://"
-TEST_RANDOM_FILENAME = "./tests/test_files/ducks.txt"
-TEST_SCIENCE_FILENAME = "./tests/test_files/padreMDA0_250403185914.dat"
-TEST_SCIENCE_FILENAME = "./tests/test_files/padreMDA0_250403185914.dat"
-TEST_BAD_SCIENCE_FILENAME = "./tests/test_files/hermes_NEM_2l_2022259-030002_v01.bin"
-TEST_NON_EXISTING_SCIENCE_FILENAME = "./hermes_NEM_l0_2022259-030002_v01.bop"
+TEST_RANDOM_FILENAME = _test_files_directory / "ducks.txt"
+TEST_SCIENCE_FILENAME = _test_files_directory / "padreMDA0_250403185914.dat"
+TEST_SCIENCE_FILENAME = _test_files_directory / "padreMDA0_250403185914.dat"
+TEST_BAD_SCIENCE_FILENAME = _test_files_directory / "hermes_NEM_2l_2022259-030002_v01.bin"
+TEST_NON_EXISTING_SCIENCE_FILENAME = _test_files_directory / "hermes_NEM_l0_2022259-030002_v01.bop"
 
 
 def test_tracker() -> None:
@@ -149,13 +145,14 @@ def test_tracker_parse_file() -> None:
         f.write("Test")
 
     engine = create_engine(TEST_DB_HOST)
-
     session = create_session(engine)
-    # Science File Parser
-
     create_tables(engine=engine)
 
+    # Science File Parser
     science_file_parser = util.parse_science_filename
+    import swxsoc
+
+    print(swxsoc.config["mission"]["mission_name"])
 
     test_tracker = tracker.MetaTracker(engine=engine, science_file_parser=science_file_parser)
 
@@ -321,13 +318,8 @@ def test_track_is_valid_instrument() -> None:
 
 
 def test_get_instruments() -> None:
-    # Create testfile with name padreMDA0_250403185914.dat
-    Path(TEST_SCIENCE_FILENAME)
-
     engine = create_engine(TEST_DB_HOST)
-
     session = create_session(engine)
-
     create_tables(engine=engine)
 
     # Science File Parser
@@ -338,8 +330,8 @@ def test_get_instruments() -> None:
     instruments = test_tracker.get_instruments(session=session)
 
     assert instruments is not None
-
-    assert len(instruments) == 2
+    print(instruments)
+    assert len(instruments) == 3
 
 
 def test_get_instrument_configurations() -> None:
@@ -361,7 +353,7 @@ def test_get_instrument_configurations() -> None:
 
     assert instrument_configurations is not None
 
-    assert len(instrument_configurations) == 3
+    assert len(instrument_configurations) == 7
 
     assert instrument_configurations[1] == ["meddea"]
 
@@ -411,7 +403,7 @@ def test_map_instrument_list() -> None:
 
     assert instrument_map is not None
 
-    assert len(instrument_map) == 2
+    assert len(instrument_map) == 3
 
 
 def test_track() -> None:
