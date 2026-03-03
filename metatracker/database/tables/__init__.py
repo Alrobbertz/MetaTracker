@@ -66,7 +66,7 @@ def get_table_modules() -> list[ModuleType]:
     return modules
 
 
-def get_table_classes(table_modules: list[ModuleType]) -> list[type]:
+def get_table_classes(table_modules: list[ModuleType]) -> list[Any]:
     """
     Get ORM table classes from their containing modules.
 
@@ -77,7 +77,7 @@ def get_table_classes(table_modules: list[ModuleType]) -> list[type]:
 
     Returns
     -------
-    list[type]
+    list[Any]
         List of ORM table classes.
     """
 
@@ -86,7 +86,7 @@ def get_table_classes(table_modules: list[ModuleType]) -> list[type]:
     return table_classes
 
 
-def get_table_from_class(table_class: type) -> Table:
+def get_table_from_class(table_class: Any) -> Table:
     """
     Get the SQLAlchemy ``Table`` object from an ORM table class.
 
@@ -103,10 +103,10 @@ def get_table_from_class(table_class: type) -> Table:
 
     table = table_class.__table__
 
-    return table
+    return table  # type: ignore[no-any-return]
 
 
-def get_tables_from_classes(table_classes: list[type]) -> list[Table]:
+def get_tables_from_classes(table_classes: list[Any]) -> list[Table]:
     """
     Get SQLAlchemy ``Table`` objects from a list of ORM table classes.
 
@@ -187,11 +187,11 @@ def get_columns(engine: Engine, table_name: str) -> list[dict[str, Any]]:
 
     inspector = inspect(engine)
 
-    return inspector.get_columns(table_name)
+    return inspector.get_columns(table_name)  # type: ignore[return-value]
 
 
 def populate_file_level_table(
-    sql_session: sessionmaker[Session], file_levels: list[dict[str, Any]], file_level_table: type
+    sql_session: sessionmaker[Session], file_levels: list[dict[str, Any]], file_level_table: Any
 ) -> None:
     """
     Upsert the file level table with the configured file levels.
@@ -238,7 +238,7 @@ def populate_file_level_table(
 
 
 def populate_file_type_table(
-    sql_session: sessionmaker[Session], file_types: list[dict[str, Any]], file_type_table: type
+    sql_session: sessionmaker[Session], file_types: list[dict[str, Any]], file_type_table: Any
 ) -> None:
     """
     Upsert the file type table with the configured file types.
@@ -289,7 +289,7 @@ def populate_file_type_table(
 
 
 def populate_instrument_table(
-    sql_session: sessionmaker[Session], instruments: list[dict[str, Any]], instrument_table: type
+    sql_session: sessionmaker[Session], instruments: list[dict[str, Any]], instrument_table: Any
 ) -> None:
     """
     Upsert the instrument table with the configured instruments.
@@ -426,7 +426,7 @@ def sync_instrument_configuration_schema(engine: Engine) -> None:
 def populate_instrument_configuration_table(
     sql_session: sessionmaker[Session],
     instrument_configurations: list[dict[str, Any]],
-    instrument_configuration_table: type,
+    instrument_configuration_table: Any,
 ) -> None:
     """
     Upsert the instrument configuration table with all configured instrument combinations.
@@ -470,7 +470,7 @@ def populate_instrument_configuration_table(
                     log.debug(f"Instrument configuration (id={config_id}) is up to date, no changes needed")
 
 
-def create_table(engine: Engine, table_class: type) -> None:
+def create_table(engine: Engine, table_class: Any) -> None:
     """
     Create a table if it doesn't already exist.
 

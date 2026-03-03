@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from swxsoc.util import util
+from swxsoc.util import util  # type: ignore
 
 from metatracker import _test_files_directory, log
 from metatracker.database import create_engine, create_session
@@ -33,7 +33,7 @@ def test_tracker() -> None:
     assert test_tracker is not None
 
     # trunk-ignore(mypy/assignment)
-    engine = "not_an_engine"
+    engine = "not_an_engine"  # type: ignore[assignment]
 
     # Science File Parser
     science_file_parser = util.parse_science_filename
@@ -150,7 +150,7 @@ def test_tracker_parse_file() -> None:
 
     # Science File Parser
     science_file_parser = util.parse_science_filename
-    import swxsoc
+    import swxsoc  # type: ignore
 
     print(swxsoc.config["mission"]["mission_name"])
 
@@ -173,6 +173,7 @@ def test_tracker_parse_file() -> None:
             sql_session.query(ScienceFileTable).filter(ScienceFileTable.filename == "padreMDA0_250403185914").first()
         )
 
+        assert found_file is not None
         assert found_file.filename == "padreMDA0_250403185914"
         assert found_file.s3_key == s3_key
         assert found_file.s3_bucket == s3_bucket
@@ -206,7 +207,7 @@ def test_add_to_status_table() -> None:
         )
         sql_session.add(science_file)
         sql_session.flush()
-        science_file_id = science_file.science_file_id
+        science_file_id = science_file.science_file_id  # type: ignore[assignment]
 
     # Initialize MetaTracker instance
     science_file_parser = util.parse_science_filename
@@ -215,7 +216,7 @@ def test_add_to_status_table() -> None:
     # Test: Add a new status entry
     processing_status = "SUCCESS"
     processing_status_message = "Processing started"
-    origin_file_ids = []
+    origin_file_ids: list[int] = []
 
     status_id = test_tracker.add_to_status_table(
         session=session,
@@ -399,7 +400,7 @@ def test_map_instrument_list() -> None:
 
     instrument_list = test_tracker.get_instruments(session=session)
 
-    instrument_map = test_tracker.map_instrument_list(session=session, instrument_list=instrument_list)
+    instrument_map = test_tracker.map_instrument_list(session=session, instrument_list=instrument_list)  # type: ignore[arg-type]
 
     assert instrument_map is not None
 
@@ -478,7 +479,7 @@ def test_track() -> None:
         assert e is not None
 
 
-def test_add_to_status_table_with_origin_files():
+def test_add_to_status_table_with_origin_files() -> None:
     """
     Test add_to_status_table with origin files
     """
@@ -545,10 +546,10 @@ def test_add_to_status_table_with_origin_files():
 
     status_id = test_tracker.add_to_status_table(
         session=session,
-        science_file_id=science_file_id,
+        science_file_id=science_file_id,  # type: ignore[arg-type]
         processing_status="SUCCESS",
         processing_status_message="Linked to origins",
-        origin_file_ids=origin_file_ids,
+        origin_file_ids=origin_file_ids,  # type: ignore[arg-type]
     )
     assert status_id is not None
 

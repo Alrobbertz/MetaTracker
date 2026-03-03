@@ -7,8 +7,10 @@ All tests use in-memory SQLite — no external database is required.
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
+from sqlalchemy.engine import Engine
 
 from metatracker import CONFIGURATION
 from metatracker.database import create_engine, create_session
@@ -30,22 +32,22 @@ from metatracker.database.tables.science_product_table import ScienceProductTabl
 MISSION_NAME = CONFIGURATION.mission_name
 
 
-def _setup_db():
+def _setup_db() -> Engine:
     """Return a fresh in-memory engine with all tables created and populated."""
     engine = create_engine("sqlite://")
     create_tables(engine)
     return engine
 
 
-def test_create_tables_idempotent():
+def test_create_tables_idempotent() -> None:
     """Calling ``create_tables`` multiple times must not raise and must leave
     row counts unchanged."""
     engine = _setup_db()
     session = create_session(engine)
 
-    def _count(table_cls):
+    def _count(table_cls: Any) -> int:
         with session.begin() as s:
-            return s.query(table_cls).count()
+            return s.query(table_cls).count()  # type: ignore[no-any-return]
 
     counts_first = {
         "file_level": _count(FileLevelTable),
@@ -68,7 +70,7 @@ def test_create_tables_idempotent():
     assert counts_first == counts_after
 
 
-def test_upsert_inserts_new_file_level():
+def test_upsert_inserts_new_file_level() -> None:
     """A new file level added to the config list is inserted on the next call."""
     engine = _setup_db()
     session = create_session(engine)
@@ -85,7 +87,7 @@ def test_upsert_inserts_new_file_level():
         assert row.description == "Level 5 File"
 
 
-def test_upsert_updates_existing_file_level():
+def test_upsert_updates_existing_file_level() -> None:
     """Changed metadata on an existing file level is updated in place."""
     engine = _setup_db()
     session = create_session(engine)
@@ -102,7 +104,7 @@ def test_upsert_updates_existing_file_level():
         assert row.description == "UPDATED DESCRIPTION"
 
 
-def test_upsert_inserts_new_file_type():
+def test_upsert_inserts_new_file_type() -> None:
     """A new file type is inserted."""
     engine = _setup_db()
     session = create_session(engine)
@@ -123,7 +125,7 @@ def test_upsert_inserts_new_file_type():
         assert row.extension == ".h5"
 
 
-def test_upsert_updates_existing_file_type():
+def test_upsert_updates_existing_file_type() -> None:
     """Changed metadata on an existing file type is updated."""
     engine = _setup_db()
     session = create_session(engine)
@@ -139,7 +141,7 @@ def test_upsert_updates_existing_file_type():
         assert row.description == "UPDATED FILE TYPE DESC"
 
 
-def test_upsert_inserts_new_instrument():
+def test_upsert_inserts_new_instrument() -> None:
     """A new instrument is inserted when its id is not yet in the table."""
     engine = _setup_db()
     session = create_session(engine)
@@ -161,7 +163,7 @@ def test_upsert_inserts_new_instrument():
         assert row.short_name == "newi"
 
 
-def test_upsert_updates_existing_instrument():
+def test_upsert_updates_existing_instrument() -> None:
     """Changed metadata on an existing instrument is updated."""
     engine = _setup_db()
     session = create_session(engine)
@@ -177,7 +179,7 @@ def test_upsert_updates_existing_instrument():
         assert row.description == "UPDATED INSTRUMENT DESC"
 
 
-def test_upsert_inserts_new_instrument_configuration():
+def test_upsert_inserts_new_instrument_configuration() -> None:
     """A new instrument configuration row is inserted."""
     engine = _setup_db()
     session = create_session(engine)
@@ -200,7 +202,7 @@ def test_upsert_inserts_new_instrument_configuration():
         assert row.instrument_1_id == 1
 
 
-def test_upsert_updates_existing_instrument_configuration():
+def test_upsert_updates_existing_instrument_configuration() -> None:
     """Changed instrument_N_id on an existing configuration is updated."""
     engine = _setup_db()
     session = create_session(engine)
@@ -236,19 +238,19 @@ def test_upsert_updates_existing_instrument_configuration():
         assert row.instrument_1_id == original_val
 
 
-def test_sync_schema_noop_when_up_to_date():
+def test_sync_schema_noop_when_up_to_date() -> None:
     """No error and no changes when schema already matches ORM."""
     engine = _setup_db()
     # Calling sync again is a no-op
     sync_instrument_configuration_schema(engine)
 
-    ic_table_name = InstrumentConfigurationTable.__table__.name
+    ic_table_name = InstrumentConfigurationTable.__table__.name  # type: ignore[attr-defined]
     db_cols = {col["name"] for col in get_columns(engine, ic_table_name)}
-    orm_cols = {col.name for col in InstrumentConfigurationTable.__table__.columns}
+    orm_cols = {col.name for col in InstrumentConfigurationTable.__table__.columns}  # type: ignore[attr-defined]
     assert orm_cols == db_cols
 
 
-def test_existing_fk_references_survive_upsert():
+def test_existing_fk_references_survive_upsert() -> None:
     """Adding new rows via upsert must not disturb existing FK references."""
     engine = _setup_db()
     session = create_session(engine)
@@ -270,12 +272,12 @@ def test_existing_fk_references_survive_upsert():
 
     # The product must still exist and its FK must still be valid
     with session.begin() as s:
-        product = s.query(ScienceProductTable).filter_by(science_product_id=product_id).first()
+        product = s.query(ScienceProductTable).filter_by(science_product_id=product_id).first()  # type: ignore[assignment]
         assert product is not None
         assert product.instrument_configuration_id == first_config_id
 
 
-def test_sync_schema_rejects_invalid_column_name(monkeypatch):
+def test_sync_schema_rejects_invalid_column_name(monkeypatch: Any) -> None:
     """sync_instrument_configuration_schema raises ValueError when a missing
     column does not match the ``instrument_N_id`` naming pattern."""
     import metatracker.database.tables as tables_pkg
@@ -283,7 +285,7 @@ def test_sync_schema_rejects_invalid_column_name(monkeypatch):
     engine = _setup_db()
 
     # Build a fake ORM class whose __table__.columns includes an invalid name
-    real_table = InstrumentConfigurationTable.__table__
+    real_table = InstrumentConfigurationTable.__table__  # type: ignore[attr-defined]
     bad_col = SimpleNamespace(name="not_a_valid_column")
     fake_table = SimpleNamespace(
         name=real_table.name,
@@ -301,7 +303,7 @@ def test_sync_schema_rejects_invalid_column_name(monkeypatch):
         sync_instrument_configuration_schema(engine)
 
 
-def test_upsert_preserves_orphaned_rows():
+def test_upsert_preserves_orphaned_rows() -> None:
     """Rows in lookup tables that are no longer in config survive the upsert."""
     engine = _setup_db()
     session = create_session(engine)

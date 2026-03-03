@@ -3,6 +3,8 @@
 #   instrument_configuration_id: int (primary key)
 #   instrument_{i+1}_id: int (foreign key)
 
+from typing import Any
+
 from sqlalchemy import Column, ForeignKey, Integer
 
 from metatracker import CONFIGURATION
@@ -22,7 +24,7 @@ for i in range(len(CONFIGURATION.instruments)):
 InstrumentConfigurationTable = type("InstrumentConfigurationTable", (Base.Base,), table_dict)
 
 
-def return_class() -> type:
+def return_class() -> Any:
     """
     Return Class
     """

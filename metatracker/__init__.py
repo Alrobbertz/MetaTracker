@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Any, Optional
 
-from swxsoc import log as swxsoc_log
+from swxsoc import log as swxsoc_log  # type: ignore
 
 from metatracker.config import load_config
 from metatracker.config.config import MetaTrackerConfiguration
@@ -41,7 +42,7 @@ def get_config() -> MetaTrackerConfiguration:
     return CONFIGURATION
 
 
-def set_config(config: dict = None) -> None:
+def set_config(config: Optional[dict[str, Any]] = None) -> None:
     """
     Set or reload the global MetaTracker configuration.
 

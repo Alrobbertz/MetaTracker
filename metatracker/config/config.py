@@ -5,7 +5,7 @@ Module for configuration of the application.
 from itertools import combinations
 from typing import Any, Dict, List, Optional
 
-from swxsoc import config as swxsoc_config
+from swxsoc import config as swxsoc_config  # type: ignore
 
 # Default Database Host
 DEFAULT_DB_HOST = "sqlite:///"
@@ -175,7 +175,7 @@ class MetaTrackerConfiguration:
         config_id = 1
         for r in range(1, len(instruments) + 1):
             for combo in combinations(range(1, len(instruments) + 1), r):
-                config = {"instrument_configuration_id": config_id}
+                config: Dict[str, Optional[int]] = {"instrument_configuration_id": config_id}
                 config.update(
                     {f"instrument_{i + 1}_id": combo[i] if i < len(combo) else None for i in range(len(instruments))}
                 )

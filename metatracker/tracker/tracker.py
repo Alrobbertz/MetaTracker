@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Optional
 
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.orm import Session, sessionmaker
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from metatracker import log
@@ -24,7 +25,7 @@ db_retry = retry(
 
 
 class MetaTracker:
-    def __init__(self, engine, science_file_parser: Callable):
+    def __init__(self, engine: Any, science_file_parser: Callable[..., Any]) -> None:
         self.engine = engine
 
         try:
@@ -35,8 +36,13 @@ class MetaTracker:
         self.science_file_parser = science_file_parser
 
     def track(
-        self, file: Path, s3_key: str, s3_bucket: str, science_product_id: int = None, status: dict = None
-    ) -> tuple:
+        self,
+        file: Path,
+        s3_key: str,
+        s3_bucket: str,
+        science_product_id: Optional[int] = None,
+        status: Optional[dict[str, Any]] = None,
+    ) -> tuple[int, int]:
         """Track a file"""
         if not self.is_file_real(file):
             log.debug("File does not exist")
@@ -68,7 +74,7 @@ class MetaTracker:
             self.add_to_status_table(
                 session=session,
                 science_file_id=science_file_id,
-                processing_status=status.get("processing_status"),
+                processing_status=status.get("processing_status"),  # type: ignore[arg-type]
                 processing_status_message=status.get("processing_status_message"),
                 processing_time_length=status.get("processing_time_length"),
                 origin_file_ids=status.get("origin_file_ids"),
@@ -77,13 +83,15 @@ class MetaTracker:
         return science_file_id, science_product_id
 
     @db_retry
-    def add_to_science_file_table(self, session: type, parsed_file: dict, science_product_id: int) -> int:
+    def add_to_science_file_table(
+        self, session: sessionmaker[Session], parsed_file: dict[str, Any], science_product_id: int
+    ) -> int:
         """Add a file to the file table"""
 
         with session.begin() as sql_session:
             if not parsed_file:
                 log.debug("File is not valid")
-                return
+                return 0
 
             # 1. Check for existing file by UNIQUE constraint (filename)
             file = (
@@ -93,7 +101,7 @@ class MetaTracker:
             if file:
                 # Optionally update fields if needed (for now just return the id)
                 log.debug(f"File already exists in Science File Table with id: {file.science_file_id}")
-                return file.science_file_id
+                return file.science_file_id  # type: ignore[return-value]
 
             # 2. If not found, insert new
             file = ScienceFileTable(
@@ -114,10 +122,12 @@ class MetaTracker:
             sql_session.flush()
             science_file_id = file.science_file_id
             log.debug(f"Added file to Science File Table with id: {science_file_id}")
-            return science_file_id
+            return science_file_id  # type: ignore[return-value]
 
     @db_retry
-    def add_to_science_product_table(self, session: type, parsed_science_product: dict):
+    def add_to_science_product_table(
+        self, session: sessionmaker[Session], parsed_science_product: dict[str, Any]
+    ) -> int:
         sess = session()
 
         # Check if science product exists with same instrument configuration id, mode, and reference timestamp
@@ -134,7 +144,7 @@ class MetaTracker:
 
         # If science product exists, return science product id
         if science_product:
-            return science_product.science_product_id
+            return science_product.science_product_id  # type: ignore[return-value]
 
         # If science product doesn't exist, add it to the database
         science_product = ScienceProductTable(
@@ -146,17 +156,17 @@ class MetaTracker:
         sess.commit()
 
         # return science product id that was just added
-        return science_product.science_product_id
+        return science_product.science_product_id  # type: ignore[return-value]
 
     @db_retry
     def add_to_status_table(
         self,
-        session: type,
+        session: sessionmaker[Session],
         science_file_id: int,
         processing_status: str,
-        processing_status_message: str = None,
-        processing_time_length: int = None,
-        origin_file_ids: list[int] = None,
+        processing_status_message: Optional[str] = None,
+        processing_time_length: Optional[int] = None,
+        origin_file_ids: Optional[list[int]] = None,
     ) -> int:
         """Add or update a status entry for a science file in the status table."""
 
@@ -177,11 +187,11 @@ class MetaTracker:
 
             if status:
                 # Update fields
-                status.processing_status = processing_status
-                status.processing_status_message = processing_status_message
-                status.last_processing_timestamp = datetime.now(timezone.utc)
-                status.reprocessed_count += 1
-                status.processing_time_length = processing_time_length
+                status.processing_status = processing_status  # type: ignore[assignment]
+                status.processing_status_message = processing_status_message  # type: ignore[assignment]
+                status.last_processing_timestamp = datetime.now(timezone.utc)  # type: ignore[assignment]
+                status.reprocessed_count += 1  # type: ignore[assignment]
+                status.processing_time_length = processing_time_length  # type: ignore[assignment]
 
                 # Extend existing origin_files without duplicates
                 if origin_files:
@@ -201,7 +211,7 @@ class MetaTracker:
                 sql_session.add(status)
 
             sql_session.flush()
-            return status.status_id
+            return status.status_id  # type: ignore[return-value]
 
     @staticmethod
     def get_file_size(file: Path) -> int:
@@ -222,14 +232,14 @@ class MetaTracker:
     def is_valid_file_product(self, file: Path) -> bool:
         """Check if a file is a valid product"""
 
-        return self.is_valid_file_type(extension=self.parse_extension(file))
+        return self.is_valid_file_type(extension=self.parse_extension(file))  # type: ignore[call-arg]
 
-    def parse_science_file_data(self, file: Path) -> dict:
+    def parse_science_file_data(self, file: Path) -> dict[str, Any]:
         """Parse a science file"""
 
-        return self.science_file_parser(file)
+        return self.science_file_parser(file)  # type: ignore[no-any-return]
 
-    def parse_file(self, session, file: Path, s3_key: str, s3_bucket: str) -> dict:
+    def parse_file(self, session: sessionmaker[Session], file: Path, s3_key: str, s3_bucket: str) -> dict[str, Any]:
         """Parse a file"""
 
         if self.is_file_real(file):
@@ -260,7 +270,7 @@ class MetaTracker:
 
         return {}
 
-    def parse_science_product(self, session, file: Path) -> dict:
+    def parse_science_product(self, session: sessionmaker[Session], file: Path) -> dict[str, Any]:
         if self.is_file_real(file):
             science_product_data = self.parse_science_file_data(file)
 
@@ -295,6 +305,8 @@ class MetaTracker:
                 "mode": science_product_data["mode"],
             }
 
+        return {}
+
     @staticmethod
     def is_valid_timestamp(timestamp: datetime) -> bool:
         """Check if a timestamp is valid"""
@@ -302,7 +314,7 @@ class MetaTracker:
         return timestamp is not None
 
     @staticmethod
-    def is_valid_instrument(session: type, instrument_short_name: str) -> bool:
+    def is_valid_instrument(session: sessionmaker[Session], instrument_short_name: str) -> bool:
         """Check if an instrument is valid"""
 
         with session.begin() as sql_session:
@@ -312,16 +324,16 @@ class MetaTracker:
             return instrument_short_name in valid_instrument_short_names
 
     @staticmethod
-    def get_file_type(session: type, extension: str):
+    def get_file_type(session: sessionmaker[Session], extension: str) -> str:
         """Get the file type of a file"""
 
         with session.begin() as sql_session:
             file_type = sql_session.query(FileTypeTable).filter(FileTypeTable.extension == extension).first()
 
-            return file_type.short_name
+            return file_type.short_name  # type: ignore[union-attr, return-value]
 
     @staticmethod
-    def is_valid_file_type(session: type, extension: str):
+    def is_valid_file_type(session: sessionmaker[Session], extension: str) -> bool:
         """Check if a file extension is valid file type in the database"""
 
         with session.begin() as sql_session:
@@ -331,7 +343,7 @@ class MetaTracker:
             return extension in valid_extensions
 
     @staticmethod
-    def is_valid_file_level(session: type, file_level: str):
+    def is_valid_file_level(session: sessionmaker[Session], file_level: str) -> bool:
         """Check if a file level is valid file level in the database"""
 
         with session.begin() as sql_session:
@@ -359,18 +371,20 @@ class MetaTracker:
         return str(file.absolute())
 
     @staticmethod
-    def get_instruments(session: type) -> list:
+    def get_instruments(session: sessionmaker[Session]) -> dict[int, str]:
         """Get all instruments from the database
         {instrument_id: "instrument_short_name"}
         """
 
         with session.begin() as sql_session:
             instruments = sql_session.query(InstrumentTable).all()
-            instruments = {instrument.instrument_id: instrument.short_name for instrument in instruments}
+            result: dict[int, str] = {
+                instrument.instrument_id: instrument.short_name for instrument in instruments  # type: ignore[misc]
+            }
 
-            return instruments
+            return result
 
-    def get_instrument_configurations(self, session: type) -> dict:
+    def get_instrument_configurations(self, session: sessionmaker[Session]) -> dict[int, list[str]]:
         """Get all configurations from the database
         {configuration_id: [instrument_1_id, instrument_2_id, ...]}
         """
@@ -379,48 +393,49 @@ class MetaTracker:
             # Get amount of instruments from InstrumentTable
             instruments = self.get_instruments(session)
             amount_of_instruments = len(instruments)
-            configurations = sql_session.query(InstrumentConfigurationTable).all()
+            configurations: list[Any] = sql_session.query(InstrumentConfigurationTable).all()
 
-            instrument_configurations = {}
+            instrument_configurations: dict[int, list[str]] = {}
             for config in configurations:
                 # For the amount of instruments
-                instruments = []
+                instrument_names: list[str] = []
                 for i in range(amount_of_instruments):
                     attribute = getattr(config, "instrument_" + str(i + 1) + "_id")
                     if attribute is not None:
                         attribute = self.get_instrument_by_id(session, int(attribute))
-                        instruments.append(attribute)
+                        instrument_names.append(attribute)
 
-                instruments.sort()
-                instrument_configurations[config.instrument_configuration_id] = instruments
+                instrument_names.sort()
+                instrument_configurations[config.instrument_configuration_id] = instrument_names
 
             return instrument_configurations
 
-    def get_instrument_by_id(self, session, instrument_id: int) -> str:
+    def get_instrument_by_id(self, session: sessionmaker[Session], instrument_id: int) -> str:
         """Get instrument by id"""
 
         with session.begin():
             instruments = self.get_instruments(session)
             return instruments[instrument_id]
 
-    def map_instrument_list(self, session: type, instrument_list: list) -> list:
+    def map_instrument_list(self, session: sessionmaker[Session], instrument_list: list[Any]) -> list[str]:
         """Map an instrument list of id to a list of instrument shortnames"""
 
         with session.begin():
             return [self.get_instrument_by_id(session, instrument_id) for instrument_id in instrument_list]
 
-    def get_failed_files(self) -> list:
+    def get_failed_files(self) -> list[Any]:
         """Get all files with status 'FAILED'."""
-        session = create_session(self.engine)
+        session_factory = create_session(self.engine)
 
         # Query the StatusTable for records with 'FAILED' processing status
-        failed_files_query = (
-            session.query(ScienceFileTable.s3_key, ScienceFileTable.s3_bucket)
-            .join(StatusTable, StatusTable.science_file_id == ScienceFileTable.science_file_id)
-            .filter(StatusTable.processing_status == "FAILED")
-        )
+        with session_factory.begin() as session:
+            failed_files_query = (
+                session.query(ScienceFileTable.s3_key, ScienceFileTable.s3_bucket)
+                .join(StatusTable, StatusTable.science_file_id == ScienceFileTable.science_file_id)
+                .filter(StatusTable.processing_status == "FAILED")
+            )
 
-        # Fetch the results and return them as a list of tuples (s3_key, s3_bucket)
-        failed_files = failed_files_query.all()
+            # Fetch the results and return them as a list of tuples (s3_key, s3_bucket)
+            failed_files = failed_files_query.all()
 
-        return failed_files
+            return failed_files
