@@ -11,13 +11,14 @@
 #   origin_file_id: int (foreign key) (optional)
 
 
-from sqlalchemy import Table, MetaData, Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
-from metatracker import CONFIGURATION
-from . import base_table as Base
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy.orm import relationship
 
+from metatracker import CONFIGURATION
+
+from . import base_table as Base
 
 status_origin_association = Table(
     f"{CONFIGURATION.mission_name}_status_origin_association",

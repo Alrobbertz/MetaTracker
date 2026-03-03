@@ -15,7 +15,7 @@ table_dict = {
 }
 
 for i in range(len(CONFIGURATION.instruments)):
-    table_dict[f"instrument_{i+1}_id"] = Column(
+    table_dict[f"instrument_{i + 1}_id"] = Column(
         Integer, ForeignKey(f"{CONFIGURATION.mission_name}_instrument.instrument_id")
     )
 

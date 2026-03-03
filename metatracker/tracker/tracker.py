@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from sqlalchemy.exc import OperationalError, IntegrityError
 
+from sqlalchemy.exc import IntegrityError, OperationalError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from metatracker import log
 from metatracker.database import check_connection, create_session
@@ -71,7 +71,7 @@ class MetaTracker:
                 processing_status=status.get("processing_status"),
                 processing_status_message=status.get("processing_status_message"),
                 processing_time_length=status.get("processing_time_length"),
-                origin_file_ids=status.get("origin_file_ids", None),
+                origin_file_ids=status.get("origin_file_ids"),
             )
 
         return science_file_id, science_product_id
@@ -87,9 +87,7 @@ class MetaTracker:
 
             # 1. Check for existing file by UNIQUE constraint (filename)
             file = (
-                sql_session.query(ScienceFileTable)
-                .filter(ScienceFileTable.filename == parsed_file["filename"])
-                .first()
+                sql_session.query(ScienceFileTable).filter(ScienceFileTable.filename == parsed_file["filename"]).first()
             )
 
             if file:
