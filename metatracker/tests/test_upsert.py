@@ -6,6 +6,9 @@ All tests use in-memory SQLite — no external database is required.
 """
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
+
+import pytest
 
 from metatracker import CONFIGURATION
 from metatracker.database import create_engine, create_session
@@ -270,6 +273,32 @@ def test_existing_fk_references_survive_upsert():
         product = s.query(ScienceProductTable).filter_by(science_product_id=product_id).first()
         assert product is not None
         assert product.instrument_configuration_id == first_config_id
+
+
+def test_sync_schema_rejects_invalid_column_name(monkeypatch):
+    """sync_instrument_configuration_schema raises ValueError when a missing
+    column does not match the ``instrument_N_id`` naming pattern."""
+    import metatracker.database.tables as tables_pkg
+
+    engine = _setup_db()
+
+    # Build a fake ORM class whose __table__.columns includes an invalid name
+    real_table = InstrumentConfigurationTable.__table__
+    bad_col = SimpleNamespace(name="not_a_valid_column")
+    fake_table = SimpleNamespace(
+        name=real_table.name,
+        columns=list(real_table.columns) + [bad_col],
+    )
+    fake_class = SimpleNamespace(__table__=fake_table)
+
+    monkeypatch.setattr(
+        tables_pkg.InstrumentConfigurationTable,
+        "return_class",
+        lambda: fake_class,
+    )
+
+    with pytest.raises(ValueError, match="does not match the expected"):
+        sync_instrument_configuration_schema(engine)
 
 
 def test_upsert_preserves_orphaned_rows():

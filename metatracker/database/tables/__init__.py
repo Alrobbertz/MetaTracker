@@ -2,6 +2,7 @@
 Setup Tables
 """
 
+import re
 from types import ModuleType
 from typing import Any
 
@@ -357,10 +358,20 @@ def sync_instrument_configuration_schema(engine: Engine) -> None:
     missing columns and issues ``ALTER TABLE … ADD COLUMN`` DDL to bring the
     schema in line with the ORM definition.
 
+    All identifiers are quoted via the engine dialect's identifier preparer,
+    and every missing column name is validated against the expected
+    ``instrument_\\d+_id`` pattern before any DDL is executed.
+
     Parameters
     ----------
     engine : Engine
         SQLAlchemy engine connected to the database.
+
+    Raises
+    ------
+    ValueError
+        If a missing column name does not match the ``instrument_N_id``
+        naming convention.  No DDL is executed in this case.
     """
     ic_table_class = InstrumentConfigurationTable.return_class()
     table_name = ic_table_class.__table__.name
@@ -383,13 +394,28 @@ def sync_instrument_configuration_schema(engine: Engine) -> None:
         " Issuing ALTER TABLE statements."
     )
 
+    # Validate that every missing column matches the expected naming pattern
+    _INSTRUMENT_COL_RE = re.compile(r"^instrument_\d+_id$")
+    for col_name in missing_columns:
+        if not _INSTRUMENT_COL_RE.match(col_name):
+            raise ValueError(
+                f"Unexpected column name '{col_name}' does not match the expected "
+                f"'instrument_N_id' pattern. Refusing to issue DDL."
+            )
+
+    # Use the dialect's identifier preparer to safely quote all identifiers
+    preparer = engine.dialect.identifier_preparer
     instrument_table_name = InstrumentTable.return_class().__table__.name
+    quoted_table = preparer.quote_identifier(table_name)
+    quoted_instrument_table = preparer.quote_identifier(instrument_table_name)
+
     with engine.connect() as connection:
         for col_name in sorted(missing_columns):
+            quoted_col = preparer.quote_identifier(col_name)
             # All instrument_N_id columns are nullable Integer FKs
             ddl = (
-                f"ALTER TABLE {table_name} ADD COLUMN {col_name} INTEGER"
-                f" REFERENCES {instrument_table_name}(instrument_id)"
+                f"ALTER TABLE {quoted_table} ADD COLUMN {quoted_col} INTEGER"
+                f" REFERENCES {quoted_instrument_table}({preparer.quote_identifier('instrument_id')})"
             )
             log.debug(f"Executing DDL: {ddl}")
             connection.execute(text(ddl))
