@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for all swxsoc tests.
+Shared pytest fixtures for all metatracker tests.
 
 These fixtures are automatically available to all test modules in the package.
 """
